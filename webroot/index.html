@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<title>ioctl-codex — Target Selector</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <div class="brand">
+    <span class="logo">IO</span>
+    <div>
+      <h1>ioctl-codex</h1>
+      <p id="status" class="muted">connecting…</p>
+    </div>
+  </div>
+  <button id="refresh" class="btn ghost" title="Reload app lists">↻</button>
+</header>
+
+<main>
+  <!-- Search + filters ---------------------------------------------------->
+  <section class="card">
+    <input id="search" class="search" type="search"
+           placeholder="Filter by name or package…" autocomplete="off" autocapitalize="off">
+    <div class="filters">
+      <label class="chk"><input type="checkbox" id="onlyRunning"> running only</label>
+      <label class="chk"><input type="checkbox" id="onlySystem"> include system</label>
+      <label class="chk"><input type="checkbox" id="onlyTargets"> targets only</label>
+    </div>
+  </section>
+
+  <!-- Current targets ----------------------------------------------------->
+  <section class="card">
+    <h2>Target list <span id="targetCount" class="pill">0</span></h2>
+    <p class="muted small">
+      Only packages listed here get the overlay injected. Changes are written to
+      <code>/data/adb/ioctl-codex/targets.txt</code> and take effect the next time
+      the app is launched (Zygisk hooks at process fork).
+    </p>
+    <div id="targets" class="list"></div>
+    <div class="row">
+      <button id="clearTargets" class="btn danger">Clear all</button>
+      <button id="saveTargets" class="btn">Save list</button>
+    </div>
+  </section>
+
+  <!-- Installed / running apps ------------------------------------------->
+  <section class="card">
+    <h2>Installed apps <span id="appCount" class="pill">0</span></h2>
+    <div id="apps" class="list"></div>
+  </section>
+
+  <!-- Output console ------------------------------------------------------>
+  <section class="card">
+    <h2>Console</h2>
+    <pre id="console" class="console"></pre>
+    <button id="clearConsole" class="btn ghost small">clear</button>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

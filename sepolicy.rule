@@ -1,0 +1,14 @@
+# ioctl-codex — sepolicy.rule
+#
+# The module is designed to need NO custom SELinux policy:
+#   * the Zygisk loader (root/zygote context) reads /data/adb/ioctl-codex,
+#   * the menu .so is staged into the app's own data dir, which the app may
+#     already read+execute under untrusted_app / priv_app,
+#   * the only privileged action (moving a finished dump to /sdcard) goes
+#     through the Zygisk root companion, which runs in the module's context.
+#
+# A malformed sepolicy.rule can prevent boot, so we intentionally ship none.
+# If a particular device still denies the /sdcard move, the fix is to add a
+# rule for the target domain (untrusted_app_27..35) permitting
+#   allow <domain> media_rw_data_file:dir { create write };
+# but that is device- and ROM-specific and is left to the user's judgement.

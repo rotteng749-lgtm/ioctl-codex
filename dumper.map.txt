@@ -1,0 +1,8 @@
+{
+  global:
+    ioctl_codex_dumper_run;
+    ioctl_codex_custom_init;
+    ioctl_codex_custom_deinit;
+  local:
+    *;
+};

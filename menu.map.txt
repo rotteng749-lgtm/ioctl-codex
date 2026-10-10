@@ -1,0 +1,7 @@
+{
+  global:
+    ioctl_codex_menu_init;
+    ioctl_codex_menu_shutdown;
+  local:
+    *;
+};

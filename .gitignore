@@ -1,0 +1,22 @@
+# Build outputs
+/build/
+/build-arm/
+/.build_test
+/.pkg/
+*.o
+*.a
+
+# Packaged module zip (produced by CI / local packaging)
+/ioctl-codex.zip
+
+# Local NDK — CI downloads its own via nttld/setup-ndk
+/ndk/
+ndk/
+
+# Local scratch / test fixtures
+/sdcard-dumps/
+/test-game/
+
+# Editor / OS
+.DS_Store
+*.swp

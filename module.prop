@@ -1,0 +1,9 @@
+id=ioctl-codex
+name=ioctl-codex
+version=v1.0.0
+versionCode=100
+author=panxcz
+description=Universal Zygisk instrumentation framework: ImGui overlay, 11 runtime capabilities and a runtime IL2CPP/Unity dumper. Open the WebUI to pick a target app.
+minApi=28
+maxApi=37
+zygisk=true

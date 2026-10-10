@@ -1,0 +1,125 @@
+name: build
+
+# Build the three shared libraries for arm64-v8a and armeabi-v7a with NDK r28b,
+# verify 16 KB page-size compliance, and package a flashable module zip.
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [ arm64-v8a, armeabi-v7a ]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # NDK r28 is the first NDK that defaults to 16 KB page alignment; r28b is
+      # what the project is developed against.
+      - name: Install NDK r28b
+        uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r28b
+          add-to-path: false
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-${{ matrix.abi }} -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE=${{ steps.ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=${{ matrix.abi }} \
+            -DANDROID_PLATFORM=android-28 \
+            -DANDROID_NDK=${{ steps.ndk.outputs.ndk-path }} \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-${{ matrix.abi }} -j"$(nproc)"
+
+      # Hard gate: every LOAD segment must be aligned to 0x4000 (16 KB). This is
+      # the Android 15+ / 16 KB-page requirement and is easy to regress.
+      - name: Verify 16 KB page alignment
+        run: |
+          set -e
+          fail=0
+          for so in build-${{ matrix.abi }}/libs/*.so; do
+            echo "== $so =="
+            readelf -lW "$so" | awk '/LOAD/{print "  align="$NF}'
+            bad=$(readelf -lW "$so" | awk '/LOAD/ && $NF != "0x4000" {print}')
+            if [ -n "$bad" ]; then
+              echo "::error file=$so::LOAD segment not 16 KB aligned"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Verify exported ABI symbols
+        run: |
+          set -e
+          check() { # file symbol
+            if ! readelf --dyn-syms -W "$1" | grep -q " $2$"; then
+              echo "::error file=$1::missing exported symbol $2"; exit 1
+            fi
+          }
+          check build-${{ matrix.abi }}/libs/libioctl_codex_zygisk.so zygisk_module_entry
+          check build-${{ matrix.abi }}/libs/libioctl_codex_zygisk.so zygisk_companion_entry
+          check build-${{ matrix.abi }}/libs/libioctl_codex_menu.so   ioctl_codex_menu_init
+          check build-${{ matrix.abi }}/libs/libioctl_codex_dumper.so ioctl_codex_dumper_run
+
+      - name: Upload .so artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: so-${{ matrix.abi }}
+          path: build-${{ matrix.abi }}/libs/*.so
+
+  package:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download all .so artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Assemble module zip
+        run: |
+          set -e
+          mkdir -p pkg/libs/arm64-v8a pkg/libs/armeabi-v7a pkg/libs/frida
+          cp artifacts/so-arm64-v8a/*.so       pkg/libs/arm64-v8a/
+          cp artifacts/so-armeabi-v7a/*.so     pkg/libs/armeabi-v7a/
+          # Optional embedded Frida gadget (arm64). Shipped xz-compressed.
+          cp third_party/frida-gadget-arm64.so.xz pkg/libs/frida/ 2>/dev/null || true
+          # Shell scripts + metadata + WebUI at the zip root.
+          cp module.prop customize.sh post-fs-data.sh service.sh uninstall.sh pkg/
+          cp -r webroot pkg/webroot
+          cp -r scripts pkg/scripts
+          # The Zygisk loader must be at zygisk/<abi>.so in the *installed* module
+          # dir; customize.sh copies it there, so we only ship it under libs/.
+          ( cd pkg && zip -r ../ioctl-codex.zip . )
+          ls -la ioctl-codex.zip
+
+      - name: Upload flashable zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: ioctl-codex-module
+          path: ioctl-codex.zip
